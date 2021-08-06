@@ -1,0 +1,180 @@
+<script type="text/javascript">
+  var ipAddr = "";
+  var readToken = "`READ_TOKEN`";
+  var channelId = "`CHANNEL_ID`";
+</script>
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Brush charts</title>
+
+    <link href="../styles.css" rel="stylesheet" />
+
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <script src="../otgw-core.js" async></script>
+
+    <style>
+      .wrapr {
+        padding-top: 20px;
+        padding-left: 10px;
+        padding-bottom: 20px;
+        padding-right: 10px;
+        background: #fff;
+        border: 1px solid #ddd;
+        box-shadow: 0 22px 35px -16px rgba(0, 0, 0, 0.1);
+        max-width: 650px;
+        margin: 35px auto;
+      }
+
+      #chart-line {
+        position: relative;
+        margin-top: -40px;
+      }
+
+      .center {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .label-column {
+        white-space: nowrap;
+        width: auto;
+      }
+
+      /* switch */
+
+      .switch {
+        position: relative;
+        display: inline-block;
+        width: 36px;
+        height: 18px;
+      }
+
+      .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+
+      .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #ccc;
+        -webkit-transition: 0.4s;
+        transition: 0.4s;
+      }
+
+      .slider:before {
+        position: absolute;
+        content: "";
+        height: 12px;
+        width: 12px;
+        left: 4px;
+        bottom: 3px;
+        background-color: white;
+        -webkit-transition: 0.4s;
+        transition: 0.4s;
+      }
+
+      input:checked + .slider {
+        background-color: #2196f3;
+      }
+
+      input:focus + .slider {
+        box-shadow: 0 0 1px #2196f3;
+      }
+
+      input:checked + .slider:before {
+        -webkit-transform: translateX(16px);
+        -ms-transform: translateX(16px);
+        transform: translateX(16px);
+      }
+
+      /* Rounded sliders */
+      .slider.round {
+        border-radius: 24px;
+      }
+
+      .slider.round:before {
+        border-radius: 50%;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="wrapr">
+      <table style="width: 100%" id="idd">
+        <tr>
+          <td class="label-column">From</td>
+          <td style="width: auto">
+            <input type="datetime-local" id="date-from" />
+          </td>
+          <td style="width: 100%"></td>
+        </tr>
+        <tr>
+          <td class="label-column">To</td>
+          <td style="width: auto">
+            <input type="datetime-local" id="date-to" />
+          </td>
+          <td style="width: 100%"></td>
+        </tr>
+        <tr>
+          <td class="label-column">Heating target, &#x00B0;C</td>
+          <td style="width: auto">
+            <div id="heatingTargetLabel" style="float: right">--</div>
+          </td>
+          <td class="label-column">Heating current, &#x00B0;C</td>
+          <td style="width: auto">
+            <div id="heatingCurrentLabel">--</div>
+          </td>
+        </tr>
+        <tr>
+          <td class="label-column">Hot water target, &#x00B0;C</td>
+          <td style="width: auto">
+            <div id="dhwTargetLabel" style="float: right">--</div>
+          </td>
+          <td class="label-column">Hot water current, &#x00B0;C</td>
+          <td style="width: auto">
+            <div id="dhwCurrentLabel">--</div>
+          </td>
+        </tr>
+        <tr>
+          <td class="label-column">Heating enable</td>
+          <td style="width: auto">
+            <div style="float: right">
+              <label class="switch">
+                <input type="checkbox" checked id="heatingEnableInput" />
+                <span class="slider round"></span>
+              </label>
+            </div>
+          </td>
+          <td class="label-column">Hot water enable</td>
+          <td style="width: auto">
+            <label class="switch">
+              <input type="checkbox" checked id="dhwEnableInput" />
+              <span class="slider round"></span>
+            </label>
+          </td>
+        </tr>
+      </table>
+    </div>
+    <div class="wrapr center" style="height: 500px" id="chart-container">
+      <div id="waiting-indicator" style="text-align: center; margin: 0 auto">LOADING...</div>
+      <div id="chart-flame"></div>
+      <div id="chart-line2"></div>
+      <div id="chart-line"></div>
+    </div>
+
+    <div class="wrapr center">
+      <textarea style="height: 150px; width: 100%; min-width: 100%" id="commands-log"></textarea>
+    </div>
+  </body>
+</html>
