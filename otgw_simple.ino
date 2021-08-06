@@ -2,6 +2,7 @@
 #ifdef ESP32
 #include <WiFi.h>
 #include "src/ESPAsyncWebServer/AsyncTCP.h"
+#include <esp_task_wdt.h>
 #elif defined(ESP8266)
 #include <ESP8266WiFi.h>
 #include <ESPAsyncTCP.h>
@@ -44,6 +45,7 @@ OpenTherm mOT(mInPin, mOutPin);
 OpenTherm sOT(sInPin, sOutPin, true);
 
 bool _heatingDisable = false;
+bool _dhwDisable = false;
 
 void ICACHE_RAM_ATTR mHandleInterrupt() {
   mOT.handleInterrupt();
@@ -57,24 +59,68 @@ void notifyClients(String s) {
   ws.textAll(s);
 }
 
-
-void processRequest(unsigned long request, OpenThermResponseStatus status) {
-  if (_heatingDisable)
-    return;
-
-  String masterRequest = "T" + String(request, HEX);
-  notifyClients(masterRequest);
-  Serial.println(masterRequest);  //master/thermostat request
-  unsigned long response = mOT.sendRequest(request);
-  if (response) {
-    String slaveResponse = "B" + String(response, HEX);
-    Serial.println(slaveResponse); //slave/boiler response
-    notifyClients(slaveResponse);
-    sOT.sendResponse(response);
-  }
+float otGetFloat(const unsigned long response) {
+  const uint16_t u88 = response & 0xffff;
+  const float f = (u88 & 0x8000) ? -(0x10000L - u88) / 256.0f : u88 / 256.0f;
+  return f;
 }
 
 
+bool _boilerTempNotify = false;
+float _boilerTemp = 0;
+
+bool _dhwTempNotify = false;
+float _dhwTemp = 0;
+
+bool _dhwSetNotify = false;
+float _dhwSet = 0;
+
+bool _chSetNotify = false;
+float _chSet = 0;
+
+unsigned long _lastRresponse;
+
+void processRequest(unsigned long request, OpenThermResponseStatus status) {
+  const int msgType = (request << 1) >> 29;
+  const int dataId = (request >> 16) & 0xff;
+
+  if (msgType == 0 && dataId == 0) { // read && status flag
+    if (_heatingDisable) {
+      request &= ~(1 << (0 + 8));
+    }
+    if (_dhwDisable) {
+      request &= ~(1 << (1 + 8));
+    }
+  }
+
+  String masterRequest = "T" + String(request, HEX);
+  notifyClients(masterRequest);
+  Serial.println(masterRequest + " " + String(request, BIN));  //master/thermostat request
+  _lastRresponse = mOT.sendRequest(request);
+  if (_lastRresponse) {
+    String slaveResponse = "B" + String(_lastRresponse, HEX);
+    Serial.println(slaveResponse); //slave/boiler response
+    notifyClients(slaveResponse);
+    sOT.sendResponse(_lastRresponse);
+
+    if (msgType == 0 && dataId == 25) { // read && boiler temp
+      _boilerTempNotify = true;
+      _boilerTemp = otGetFloat(_lastRresponse);
+    }
+    if (msgType == 0 && dataId == 26) { // read && dhw temp
+      _dhwTempNotify = true;
+      _dhwTemp = otGetFloat(_lastRresponse);
+    }
+    if (dataId == 56) { // dhw setpoint
+      _dhwSetNotify = true;
+      _dhwSet = otGetFloat(_lastRresponse);
+    }
+    if (dataId == 1) { // ch setpoint
+      _chSetNotify = true;
+      _chSet = otGetFloat(_lastRresponse);
+    }
+  }
+}
 
 const char* PARAM_MESSAGE = "message";
 
@@ -176,11 +222,25 @@ void setup() {
   server.on("/heating-false", HTTP_GET, [](AsyncWebServerRequest * request) {
     Serial.println("Heating disable override");
     request->send(200, "text/plain", "OK: heating off");
+   _heatingDisable = true;
   });
 
   server.on("/heating-true", HTTP_GET, [](AsyncWebServerRequest * request) {
     Serial.println("Heating enable");
     request->send(200, "text/plain", "OK: heating on");
+    _heatingDisable = false;
+  });
+
+  server.on("/dhw-false", HTTP_GET, [](AsyncWebServerRequest * request) {
+    Serial.println("Domestic hot water disable override");
+    request->send(200, "text/plain", "OK: dhw off");
+    _dhwDisable = true;
+  });
+
+  server.on("/dhw-true", HTTP_GET, [](AsyncWebServerRequest * request) {
+    Serial.println("Domestic hot water enable");
+    request->send(200, "text/plain", "OK: dhw on");
+    _dhwDisable = false;
   });
 
   server.on("/otgw-core.js", HTTP_GET, [](AsyncWebServerRequest * request) {
@@ -236,32 +296,51 @@ void setup() {
   mOT.begin(mHandleInterrupt);
   sOT.begin(sHandleInterrupt, processRequest);
 
-  Serial.println("Setup done");
+#ifdef ESP32
+  esp_task_wdt_init(10, true); //enable panic so ESP32 restarts
+  esp_task_wdt_add(NULL); //add current thread to WDT watch
+#endif
+
 }
 
+int _thingSpeakUpd = 0;
+
 void loop() {
+  esp_task_wdt_reset();
   sOT.process();
   ws.cleanupClients();
-  //notifyClients();
-  //delay(10000);
-  return;
-  // set the fields with the values
-  /*ThingSpeak.setField(1, 47.9f);
-    ThingSpeak.setField(2, 46);
-    ThingSpeak.setField(3, 74);
-    ThingSpeak.setField(4, true);*/
-  String str;
-  for (int i = 0; i < 255; ++i)
-    str += 's';
-  ThingSpeak.setField(5, str);
-  // write to the ThingSpeak channel
-  int x = ThingSpeak.writeFields(myChannelNumber, myWriteAPIKey);
-  if (x == 200) {
-    Serial.println("Channel update successful.");
+
+  if (_boilerTempNotify) {
+    _boilerTempNotify = false;
+    notifyClients("B:" + String(_boilerTemp));
   }
-  else {
-    Serial.println("Problem updating channel. HTTP error code " + String(x));
+  if (_dhwTempNotify) {
+    _dhwTempNotify = false;
+    notifyClients("D:" + String(_dhwTemp));
+  }
+  if (_dhwSetNotify) {
+    _dhwSetNotify = false;
+    notifyClients("F:" + String(_dhwSet));
+  }
+  if (_chSetNotify) {
+    _chSetNotify = false;
+    notifyClients("G:" + String(_chSet));
   }
 
-  delay(20000);
+  if (_thingSpeakUpd < millis()) {
+    _thingSpeakUpd = millis() + 10000;
+
+    ThingSpeak.setField(1, _boilerTemp);
+    ThingSpeak.setField(2, _chSet);
+    ThingSpeak.setField(3, mOT.getModulation());
+    ThingSpeak.setField(4, mOT.isFlameOn(_lastRresponse));
+
+    int x = ThingSpeak.writeFields(myChannelNumber, myWriteAPIKey);
+    if (x == 200) {
+      Serial.println("Channel update successful.");
+    }
+    else {
+      Serial.println("Problem updating channel. HTTP error code " + String(x));
+    }
+  }
 }
