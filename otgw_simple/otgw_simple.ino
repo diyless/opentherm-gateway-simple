@@ -15,7 +15,7 @@
 
 const char* ssid = "SSID";
 const char* password = "PASSWORD";
-unsigned long myChannelNumber = CHN;
+unsigned long myChannelNumber = 0;
 const char* myReadAPIKey = "TOKEN";
 const char* myWriteAPIKey = "TOKEN";
 
@@ -300,6 +300,9 @@ void loop() {
 
   if (_thingSpeakUpd < millis()) {
     _thingSpeakUpd = millis() + 20000;
+
+    if (myChannelNumber == 0 || myReadAPIKey == "TOKEN" || myWriteAPIKey == "TOKEN")
+      return;
 
     ThingSpeak.setField(1, _boilerTemp);
     ThingSpeak.setField(2, _chSet);
