@@ -1,6 +1,6 @@
 const char index_html[] PROGMEM = R"rawliteral(
 <script type="text/javascript">
-  var ipAddr = "";
+  var ipAddr = "`IP_ADDR`";
   var readToken = "`READ_TOKEN`";
   var channelId = "`CHANNEL_ID`";
 </script>
@@ -553,9 +553,10 @@ function onMessage(event) {
     var date = new Date();
 
     const int = parseInt(Number(`0x${numberData}`), 10);
-    const msgType = (int << 1) >> 29;
-    const dataId = (int >> 16) & 0xff;
-    const dataValue = int & 65535;
+    const data = int & (~(1<<31));
+    const msgType = data >> 28;
+    const dataId = (data >> 16) & 0xff;
+    const dataValue = data & 65535;
 
     const msgTypeStr = OpenThermMessageType[msgType];
     const dataIdStr = OpenThermMessageID[dataId];

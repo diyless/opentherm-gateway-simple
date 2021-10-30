@@ -82,16 +82,20 @@ float _modLevel = 0;
 unsigned long _lastRresponse;
 
 void processRequest(unsigned long request, OpenThermResponseStatus status) {
-  const int msgType = (request << 1) >> 29;
-  const int dataId = (request >> 16) & 0xff;
+  const byte msgType = (request << 1) >> 29;
+  const int dataId = (request >> 16) & 0xFF;
 
   if (msgType == 0 && dataId == 0) { // read && status flag
     if (_heatingDisable) {
-      request &= ~(1 << (0 + 8));
+      Serial.println("Disable Heating");
+      request &= ~(1ul << (0 + 8));
     }
     if (_dhwDisable) {
-      request &= ~(1 << (1 + 8));
+      Serial.println("Disable DHW");
+      request &= ~(1ul << (1 + 8));
     }
+    request &= ~(1ul << 31);
+    if (mOT.parity(request)) request |= (1ul << 31);
   }
 
   String masterRequest = "T" + String(request, HEX);
