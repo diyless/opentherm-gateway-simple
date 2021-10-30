@@ -10,7 +10,7 @@ const char index_html[] PROGMEM = R"rawliteral(
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
-    <title>Brush charts</title>
+    <title>OpenTherm Gateway</title>
 
     <link href="../styles.css" rel="stylesheet" />
 
@@ -152,7 +152,7 @@ const char index_html[] PROGMEM = R"rawliteral(
           <td style="width: auto">
             <div style="float: right">
               <label class="switch">
-                <input type="checkbox" checked id="heatingEnableInput" />
+                <input type="checkbox" id="heatingEnableInput" disabled />
                 <span class="slider round"></span>
               </label>
             </div>
@@ -160,7 +160,7 @@ const char index_html[] PROGMEM = R"rawliteral(
           <td class="label-column">Hot water enable</td>
           <td style="width: auto">
             <label class="switch">
-              <input type="checkbox" checked id="dhwEnableInput" />
+              <input type="checkbox" id="dhwEnableInput" disabled />
               <span class="slider round"></span>
             </label>
           </td>
@@ -259,6 +259,11 @@ let flameChart;
 
 init();
 
+Date.prototype.addHours = function(h) {
+  this.setTime(this.getTime() + (h*60*60*1000));
+  return this;
+}
+
 function init() {
   let varsInitDone = true;
   if (ipAddr === "`IP_ADDR`" || ipAddr === "") {
@@ -283,18 +288,11 @@ function init() {
   });
 }
 
-function formatDateRequest(date) {
-  const tzOffset = new Date().getTimezoneOffset() / 60;
-  let dateCopy = new Date(date.getTime());
-  dateCopy.setHours(dateCopy.getHours() - tzOffset);
-  const isoDateParts = dateCopy.toISOString().split("T");
-  return isoDateParts[0] + "%20" + isoDateParts[1].slice(0, -5);
-}
 
 function getData(dateFrom, dateTo) {
-  // "https://api.thingspeak.com/channels/<channel-id>/feeds.json?api_key=<read-api-key>&offset=<tz-offset>&start=<start-datetime>&end=<end-datetime>"
-  const tzOffset = new Date().getTimezoneOffset() / 60;
-  const params = `api_key=${readToken}&offset=${tzOffset}&start=${formatDateRequest(dateFrom)}&end=${formatDateRequest(dateTo)}`;
+  // "https://api.thingspeak.com/channels/<channel-id>/feeds.json?api_key=<read-api-key>&offset=<tz-offset>&start=<start-datetime>&end=<end-datetime>&round=0"
+  const tzOffset = new Date().getTimezoneOffset() / -60;
+  const params = `api_key=${readToken}&offset=${tzOffset}&start=${formatDate(dateFrom, '%20')}&end=${formatDate(dateTo, '%20')}&round=0`;
   const url = `https://api.thingspeak.com/channels/${channelId}/feeds.json?${params}`;
 
   var xhr = new XMLHttpRequest();
@@ -307,7 +305,7 @@ function getData(dateFrom, dateTo) {
   dataFlame = [];
 
   responseObj.feeds.forEach((element) => {
-    const timeStamp = Date.parse(element.created_at);
+    const timeStamp = new Date(element.created_at).getTime();
     data.push([timeStamp, element.field1]);
     dataFlame.push([timeStamp, element.field4]);
   });
@@ -345,19 +343,9 @@ function reloadAndUpdate() {
 function initUi(initOk) {
   document.querySelector("#waiting-indicator").style.setProperty("display", "none");
   document.querySelector("#chart-container").classList.remove("center");
-
-  let todayStart = new Date();
-  let offs = todayStart.getTimezoneOffset();
-  todayStart.setHours(todayStart.getHours() - 2 - offs / 60);
-  let value = todayStart.toISOString().slice(0, -8);
-
-  document.querySelector("#date-from").value = value;
-
-  value = new Date();
-  value.setHours(value.getHours() - value.getTimezoneOffset() / 60);
-  value = value.toISOString().slice(0, -8);
-
-  document.querySelector("#date-to").value = value;
+  
+  document.querySelector("#date-from").value = formatDate(new Date().addHours(-2), 'T');
+  document.querySelector("#date-to").value = formatDate(new Date(), 'T');
 
   document.querySelector("#date-from").addEventListener("change", (event) => {
     reloadAndUpdate();
@@ -428,6 +416,9 @@ function initUi(initOk) {
     },
     xaxis: {
       type: "datetime",
+      labels: {
+        datetimeUTC: false,
+      }      
     },
     yaxis: {
       labels: {
@@ -515,7 +506,7 @@ function onClose(event) {
   setTimeout(initWebSocket, 2000);
 }
 
-function formatDate(date) {
+function formatDate(date, s = ' ') {
   var d = date,
     month = "" + (d.getMonth() + 1),
     day = "" + d.getDate(),
@@ -530,7 +521,7 @@ function formatDate(date) {
   if (min.length < 2) min = "0" + min;
   if (sec.length < 2) sec = "0" + sec;
 
-  return `${year}-${month}-${day} ${hour}:${min}:${sec}`;
+  return `${year}-${month}-${day}${s}${hour}:${min}:${sec}`;
 }
 
 function onMessage(event) {
@@ -558,10 +549,18 @@ function onMessage(event) {
     const dataId = (data >> 16) & 0xff;
     const dataValue = data & 65535;
 
+    if (msgType == 0 && dataId == 0)
+    {
+      document.getElementById("heatingEnableInput").checked = ((dataValue & (1<<8)) != 0);
+      document.getElementById("dhwEnableInput").checked = ((dataValue & (1<<9)) != 0);
+    }
+
     const msgTypeStr = OpenThermMessageType[msgType];
     const dataIdStr = OpenThermMessageID[dataId];
 
-    text.value += `${formatDate(date)}: ${int} [msgType: ${msgType} (${msgTypeStr}); dataId: ${dataId} (${dataIdStr}); dataValue: ${dataValue}]\r\n`;
+    var log = text.value;
+    log = log.substring(log.length-100000);
+    text.value = log + `${formatDate(date)}: ${int} [msgType: ${msgType} (${msgTypeStr}); dataId: ${dataId} (${dataIdStr}); dataValue: ${dataValue}]\r\n`;
     text.scrollTop = text.scrollHeight;
   }
 }
