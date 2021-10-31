@@ -97,37 +97,36 @@ void processRequest(unsigned long request, OpenThermResponseStatus status) {
     request &= ~(1ul << 31);
     if (mOT.parity(request)) request |= (1ul << 31);
   }
+  
+  _lastRresponse = mOT.sendRequest(request);  
+  sOT.sendResponse(_lastRresponse);
 
-  String masterRequest = "T" + String(request, HEX);
-  notifyClients(masterRequest);
+  String masterRequest = "T" + String(request, HEX);  
   Serial.println(masterRequest + " " + String(request, BIN));  //master/thermostat request
-  _lastRresponse = mOT.sendRequest(request);
-  if (_lastRresponse) {
-    String slaveResponse = "B" + String(_lastRresponse, HEX);
-    Serial.println(slaveResponse); //slave/boiler response
-    notifyClients(slaveResponse);
-    sOT.sendResponse(_lastRresponse);
+  notifyClients(masterRequest);
+  String slaveResponse = "B" + String(_lastRresponse, HEX);
+  Serial.println(slaveResponse); //slave/boiler response
+  notifyClients(slaveResponse);  
 
-    if (msgType == 0 && dataId == 25) { // read && boiler temp
-      _boilerTempNotify = true;
-      _boilerTemp = otGetFloat(_lastRresponse);
-    }
-    if (msgType == 0 && dataId == 26) { // read && dhw temp
-      _dhwTempNotify = true;
-      _dhwTemp = otGetFloat(_lastRresponse);
-    }
-    if (dataId == 56) { // dhw setpoint
-      _dhwSetNotify = true;
-      _dhwSet = otGetFloat(_lastRresponse);
-    }
-    if (dataId == 1) { // ch setpoint
-      _chSetNotify = true;
-      _chSet = otGetFloat(_lastRresponse);
-    }
-    if (dataId == 17) { // RelModLevel
-      _modLevel = otGetFloat(_lastRresponse);
-    }
+  if (msgType == 0 && dataId == 25) { // read && boiler temp
+    _boilerTempNotify = true;
+    _boilerTemp = otGetFloat(_lastRresponse);
   }
+  if (msgType == 0 && dataId == 26) { // read && dhw temp
+    _dhwTempNotify = true;
+    _dhwTemp = otGetFloat(_lastRresponse);
+  }
+  if (dataId == 56) { // dhw setpoint
+    _dhwSetNotify = true;
+    _dhwSet = otGetFloat(_lastRresponse);
+  }
+  if (dataId == 1) { // ch setpoint
+    _chSetNotify = true;
+    _chSet = otGetFloat(_lastRresponse);
+  }
+  if (dataId == 17) { // RelModLevel
+    _modLevel = otGetFloat(_lastRresponse);
+  }  
 }
 
 const char* PARAM_MESSAGE = "message";
