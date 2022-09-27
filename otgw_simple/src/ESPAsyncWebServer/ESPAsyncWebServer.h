@@ -33,7 +33,7 @@
 #include "AsyncTCP.h"
 #elif defined(ESP8266)
 #include <ESP8266WiFi.h>
-#include <ESPAsyncTCP.h>
+#include "../ESPAsyncTCP/ESPAsyncTCP.h"
 #else
 #error Platform not supported
 #endif

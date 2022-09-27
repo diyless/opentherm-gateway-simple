@@ -5,7 +5,7 @@
 #include <esp_task_wdt.h>
 #elif defined(ESP8266)
 #include <ESP8266WiFi.h>
-#include <ESPAsyncTCP.h>
+#include "src/ESPAsyncTCP/ESPAsyncTCP.h"
 #endif
 #include "src/ESPAsyncWebServer/ESPAsyncWebServer.h"
 #include "src/ThingSpeak/ThingSpeak.h"
@@ -281,7 +281,9 @@ void setup() {
 int _thingSpeakUpd = 0;
 
 void loop() {
+#ifdef ESP32
   esp_task_wdt_reset();
+#endif
   sOT.process();
   ws.cleanupClients();
 

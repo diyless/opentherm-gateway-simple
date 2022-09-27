@@ -26,7 +26,7 @@
 #include "AsyncTCP.h"
 #define WS_MAX_QUEUED_MESSAGES 32
 #else
-#include <ESPAsyncTCP.h>
+#include "../ESPAsyncTCP/ESPAsyncTCP.h"
 #define WS_MAX_QUEUED_MESSAGES 8
 #endif
 #include "ESPAsyncWebServer.h"

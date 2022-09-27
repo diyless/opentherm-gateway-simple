@@ -22,6 +22,8 @@
 #ifndef ASYNCTCP_H_
 #define ASYNCTCP_H_
 
+#ifdef ESP32
+
 #include "IPAddress.h"
 #include "sdkconfig.h"
 #include <functional>
@@ -213,5 +215,6 @@ class AsyncServer {
     int8_t _accepted(AsyncClient* client);
 };
 
+#endif /* ESP32 */
 
 #endif /* ASYNCTCP_H_ */
