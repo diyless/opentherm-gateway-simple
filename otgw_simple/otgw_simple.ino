@@ -97,16 +97,16 @@ void processRequest(unsigned long request, OpenThermResponseStatus status) {
     request &= ~(1ul << 31);
     if (mOT.parity(request)) request |= (1ul << 31);
   }
-  
-  _lastRresponse = mOT.sendRequest(request);  
+
+  _lastRresponse = mOT.sendRequest(request);
   sOT.sendResponse(_lastRresponse);
 
-  String masterRequest = "T" + String(request, HEX);  
+  String masterRequest = "T" + String(request, HEX);
   Serial.println(masterRequest + " " + String(request, BIN));  //master/thermostat request
   notifyClients(masterRequest);
   String slaveResponse = "B" + String(_lastRresponse, HEX);
   Serial.println(slaveResponse); //slave/boiler response
-  notifyClients(slaveResponse);  
+  notifyClients(slaveResponse);
 
   if (msgType == 0 && dataId == 25) { // read && boiler temp
     _boilerTempNotify = true;
@@ -126,7 +126,7 @@ void processRequest(unsigned long request, OpenThermResponseStatus status) {
   }
   if (dataId == 17) { // RelModLevel
     _modLevel = otGetFloat(_lastRresponse);
-  }  
+  }
 }
 
 const char* PARAM_MESSAGE = "message";
@@ -170,7 +170,6 @@ void initWebSocket() {
 }
 
 String processor(const String& var) {
-  Serial.println(var);
   if (var == "STATE") {
     if (ledState) {
       return "ON";
@@ -179,6 +178,8 @@ String processor(const String& var) {
       return "OFF";
     }
   }
+
+  return "";
 }
 
 
