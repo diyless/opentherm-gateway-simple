@@ -272,18 +272,11 @@ void setup() {
   mOT.begin(mHandleInterrupt);
   sOT.begin(sHandleInterrupt, processRequest);
 
-#ifdef ESP32
-  esp_task_wdt_init(10, true); //enable panic so ESP32 restarts
-  esp_task_wdt_add(NULL); //add current thread to WDT watch
-#endif
 }
 
 int _thingSpeakUpd = 0;
 
 void loop() {
-#ifdef ESP32
-  esp_task_wdt_reset();
-#endif
   sOT.process();
   ws.cleanupClients();
 
